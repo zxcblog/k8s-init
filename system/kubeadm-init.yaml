@@ -1,0 +1,28 @@
+apiServer: {}
+apiVersion: kubeadm.k8s.io/v1beta4
+clusterName: k8s-init
+kind: ClusterConfiguration # 集群级别配置
+kubernetesVersion: 1.32.0 # 使用的版本
+imageRepository: registry.aliyuncs.com/google_containers
+networking:
+  dnsDomain: cluster.local
+  serviceSubnet: 10.96.0.0/12
+  podSubnet: 10.244.0.0/16  # 确保与您选择的CNI插件兼容
+
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration #  配置 kubelet
+cgroupDriver: systemd  # 设置cgroup driver为systemd
+serializeImagePulls: false
+evictionHard: # kubelet 在资源不足时驱逐 pod 的硬性阈值
+  memory.available: "100Mi"
+  nodefs.available: "10%"
+  nodefs.inodesFree: "5%"
+
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration # 初始化配置
+nodeRegistration:
+  criSocket: "unix:///var/run/containerd/containerd.sock"  # 根据使用的容器运行时调整路径
+  name: "master" # 将主机名称设置为 master, 如果不设置，会通过hostname进行获取
+

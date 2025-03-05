@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubepi-user
+  namespace: kube-system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubepi-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: kubepi-user
+    namespace: kube-system
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kubepi-pv
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kubepi
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: kubepi-pv
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "E:\\k8s\\k8s-init\\data\\kubepi"
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kubepi-pv
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kubepi
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: kubepi-pv  # 必须与 PV 的 storageClassName 匹配
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubepi
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: kubepi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepi
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: kubepi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kubepi
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kubepi
+    spec:
+      containers:
+        - name: kubepi
+          image: kubeoperator/kubepi-server:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: kubepi-persistent-storage
+              mountPath: /e/k8s/k8s-init/data/kubepi
+      volumes:
+        - name: kubepi-persistent-storage
+          persistentVolumeClaim:
+            claimName: kubepi-pv

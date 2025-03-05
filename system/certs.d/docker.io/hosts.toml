@@ -1,0 +1,13 @@
+server = "https://docker.io"
+
+# 阿里云镜像加速地址
+[host."https://w7w4idr5.mirror.aliyuncs.com"]
+  capabilities = ["pull", "resolve"]
+
+# DaoCloud 镜像加速
+[host."https://docker.m.daocloud.io"]
+  capabilities = ["pull", "resolve"]
+
+# 官方源作为后备
+[host."https://registry-1.docker.io"]
+  capabilities = ["pull", "resolve"]

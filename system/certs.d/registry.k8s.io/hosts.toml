@@ -1,0 +1,18 @@
+server = "https://registry.k8s.io"
+
+# 阿里云镜像加速地址
+[host."https://w7w4idr5.mirror.aliyuncs.com"]
+  capabilities = ["pull", "resolve"]
+
+[host."https://k8s.m.daocloud.io"]
+  capabilities = ["pull", "resolve"]
+
+
+
+
+
+
+
+
+
+

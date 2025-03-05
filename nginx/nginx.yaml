@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: nginx
+    env: demo
+    owner: zxc
+  name: nginx-server
+spec:
+  type: NodePort
+  ports:
+    - port: 30030
+      targetPort: 80
+      nodePort: 30030
+
+  selector:
+    app: nginx
+    env: demo
+    owner: zxc
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ngx-conf
+
+data:
+  default.conf: |
+    server {
+      listen 80;
+      location / {
+        default_type text/plain;
+        return 200
+          'srv : $server_addr:$server_port\nhost: $hostname\nuri : $request_method $host $request_uri\ndate: $time_iso8601\n';
+      }
+    }
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: ngx-ing
+spec:
+  controller: nginx.org/ingress-controller
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  creationTimestamp: null
+  name: ngx-ing
+spec:
+  ingressClassName: ngx-ing
+  rules:
+    - host: ngx.test
+      http:
+        paths:
+          - backend:
+              service:
+                name: ngx-svc
+                port:
+                  number: 80
+            path: /
+            pathType: Exact
+status:
+  loadBalancer: {}
+
+---
+
+apiVersion: apps/v1 # api版本号
+kind: Deployment
+metadata: # 资源的元信息，标记对象，方便k8s管理的信息
+  name: nginx # 资源名称
+  namespace: default # 所属空间
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec: # 指定pod中容器的配置信息
+      volumes:
+        - name: ngx-conf-vol
+          configMap:
+            name: ngx-conf
+      containers:
+        - image: docker.io/bitnami/nginx:1.27
+          name: nginx
+          ports:
+            - containerPort: 80
+
+          volumeMounts:
+            - mountPath: /etc/nginx/conf.d
+              name: ngx-conf-vol

@@ -1,0 +1,166 @@
+# kubeadm
+kubeadm init --config kubeadm-init.yaml: 指定配置文件创建集群
+kubeadm reset: 集群重置 
+kubeadm join: 加入集群
+kubeadm config images pull: 提前下载镜像
+
+# kubectl
+> 执行命令时添加 --v=9 会显示出详细的命令过程
+> --dry-run=client -o yaml 执行创建命令时使用可以使命令空运行并输出yaml文件到控制台
+> -w 动态显示pod状态
+
+
+
+kubectl cluster-info:  查询k8s运行信息
+
+kubectl get all: 查看节点信息
+kubectl get nodes: 获取集群节点，可用  kubectl get node, kubectl get no 同等替换
+kubectl delete nodes node1: 删除名称为node1的节点
+kubectl get nodes -o wide: 通过表格展示更多信息
+kubectl get nodes -o yaml: 使用yaml格式显示更多信息
+kubectl get nodes -o json: 使用json格式显示更多信息
+kubectl get svc: 获取集群服务 kubectl get service
+    ClusterIP: 是 K8S 当前默认的 Service 类型。将 service 暴露于一个仅集群内可访问的虚拟 IP 上。
+    NodePort: 是通过在集群内所有 Node 上都绑定固定端口的方式将服务暴露出来，这样便可以通过 <NodeIP>:<NodePort> 访问服务了。
+    LoadBalancer: 是通过 Cloud Provider 创建一个外部的负载均衡器，将服务暴露出来，并且会自动创建外部负载均衡器路由请求所需的 Nodeport 或 ClusterIP 。
+    ExternalName: 是通过将服务由 DNS CNAME 的方式转发到指定的域名上将服务暴露出来，这需要 kube-dns 1.7 或更高版本支持。
+kubectl get ns: 获取集群命名空间
+kubectl get rs: 获取 replicaSet 
+kubectl -n 命名空间 get pods: 获取指定命名空间下的pod节点
+kubectl -n 命名空间 get pods -o wide: 使用更多列显示pod节点信息
+kubectl apply -f xx.yaml: 通过yaml文件部署节点
+kubectl delete -f xx.yaml: 通过yaml文件删除节点
+kubectl get pods --all-namespaces: 查询所有命名空间的pod节点
+kubectl get cm: 查看configMap
+kubectl get pv: 查看存储资源
+kubectl get pvc: 查看pvc
+kubectl get sts: 查看有状态的pod
+kubectl get deploy: 查看无状态的pod
+
+## 角色权限相关
+kubectl get roles --all-namespaces: 查看所有命名空间的角色
+kubectl get rolebindings --all-namespaces
+kubectl get clusterrolebinding --all-namespaces
+kubectl get clusterrole
+kubectl get clusterrolebindings cluster-admin -o yaml
+kubectl get clusterrole cluster-admin -o yaml
+
+
+kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes: 使用指定配置文件， 或者设置KUBECONFIG
+
+kubectl api-resources: 查看服务端支持的API资源及别名和描述等信息，展示出来的命令都可以用过 kubectl get 进行查询
+kubectl explain 资源名称: 查看对应的资源说明, `kubectl explain node`
+
+kubectl run: 部署服务
+kubectl run redis --image='bitnami/redis:7.4': 部署一个redis服务
+kubectl run redis --image='bitnami/redis:7.4' --dry-run=client -o yaml: 不进行创建，只生成yaml文件 --dry-run=client 空运行， -o yaml 生成yaml格式文件
+kubectl delete pod -l run=redis 删除 kubectl run 创建的pod， run=redis中redis是创建时使用的名字
+kubectl delete pod pod-name: 删除pod节点
+
+kubectl expose: 将服务节点暴露出来
+    - kubectl expose deploy/redis --port=6379 --protocol=TCP --target-port=6379 --name=redis-server
+    - kubectl expose deploy/redis --port=6379 --protocol=TCP --target-port=6379 --name=redis-server --type=NodePort
+        - port: 是 Service 暴露出来的端口，可通过此端口访问 Service。
+        - protocol: 是所用协议。当前 K8S 支持 TCP/UDP 协议，在 1.12 版本中实验性的加入了对 SCTP 协议的支持。默认是 TCP 协议。
+        - target-port: 是实际服务所在的目标端口，请求由 port 进入通过上述指定 protocol 最终流向这里配置的端口。
+        - name: Service 的名字，它的用处主要在 dns 方面。
+        - type: 是前面提到的类型，如果没指定默认是 ClusterIP。
+kubectl port-forward: 让集群外部访问   
+    - kubectl port-forward svc/redis-server 6379:6379
+
+kubectl scale: 扩容pod节点
+    - kubectl scale deploy/redis --replicas=2
+
+kubectl config current-context: 获取当前上下文, 返回信息为 user@集群名称
+kubectl config view -o yaml: 查看配置
+kubectl config view -o jsonpath='{.users[?(@.name == "kubernetes-admin")].user.client-certificate-data}' | base64 -d
+
+## 创建用户
+kubectl create namespace work: 创建新的namespace work
+mkdir work
+cd work
+openssl genrsa -out backend.key 2048: 创建私钥
+openssl req -new -key backend.key -out backend.csr -subj "/CN=backend/O=dev": 生产私钥证书，指定subject信息，传递用户名和组名
+openssl x509 -req -in backend.csr -CA /etc/kubernetes/pki/ca.crt -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out backend.crt -days 365: 使用ca进行签名， k8s默认证书位置为 /etc/kubernetes/pki
+openssl x509 -in backend.crt -text -noout: 查看生成的证书
+添加context
+kubectl config set-credentials backend --client-certificate=/root/work/backend.crt  --client-key=/root/work/backend.key
+kubectl config set-context backend-context --cluster=kubernetes --namespace=work --user=backend
+
+kubectl describe: 查看详细状态
+    kubectl describe pod redis: 查看pod名称为redis的详细信息， 主要是看末尾的Events
+    kubectl describe cm cmname: 查看configMap名称为 cmname的信息
+kubectl logs: 查看容器日志
+    kubectl logs pod-name: 查看pod-name节点的日志信息， events查询不出来错误信息时使用日志进行查看
+
+kubectl create: 创建
+    kubectl create ns ns-name: 创建命名空间
+    kubectl create job: 创建一次性任务
+    kubectl create cj: 创建定时任务
+    kubectl create cm: 创建configMap, --from-literal 生成时携带data数据
+        kubectl create cm info  --from-literal=k1=v1 --from-literal=k=v --dry-run=client -o yaml
+    kubectl create secret: 创建secret, --from-literal 生成时携带data数据
+    kubectl create deploy: 创建Deployment(在线业务)
+    kubectl create ing: 创建ingress，流量管理器。 --class 指定 ingress 从属， --rule 指定路由规则
+        kubectl create ing ngx-ing --rule="ngx.test/=ngx-svc:80" --class=ngx-ing --dry-run=client -o yaml
+    kubectl create quota: 创建命名空间的资源限制
+kubectl delete: 删除
+    kubectl delete -f xxx.yaml: 根据yaml文件进行删除
+    kubectl delete nodes node-name: 根据node名称对节点进行删除
+    kubectl delete ns ns-name: 根据命名空间名称进行删除
+
+kubectl cp : 文件拷贝
+    kubectl cp a.txt ngx-pod:/tmp: 将文件a.txt复制到ngx-pod pod中的/tmp路径下
+
+kubectl exec: 进入shell命令交互 
+    kubectl exec -it ngx-pod -- sh: 和 ngx-pod进行交互
+
+kubectl scale: 临时管理节点数量
+    kubectl scale --replicas=5 deploy ngx-dep
+
+kubectl taint: 给节点修改污点和容忍度， 指定节点名，污点名，污点效果， 去掉污点额外添加 - 
+    kubectl taint node master node-role.kubernetes.io/master:NoSchedule- : 去掉master节点的NoSchedule效果
+
+kubectl rollout: 滚动升级或降级
+    kubectl rollout status deploy nginx: 查看应用更新状态
+    kubectl rollout pause: 暂停更新，检查，修改pod。只支持deploy
+    kubectl rollout resume: 继续更新。只支持deploy
+    kubectl rollout history: 查看历史记录
+    kubectl rollout history deploy nginx --revision 1: 查看历史记录1的详细信息
+    kubectl rollout undo: 回滚到上一个版本, --to-revision 回退到任意一个历史版本
+> annotations： yaml文件中使用，添加自定义扩展信息， 查看历史记录时会展示在 CHANGE-CAUSE列中
+
+kubectl autoscale: 创建自动扩容HorizontalPodAutoscaler的样板yaml文件
+
+    
+> DaemonSet 守护进程， 每个节点上都必须运行一个，不能使用命令 kubectl create 直接创建 DaemonSet 对象，常用于监控、日志等业务
+
+> 静态pod， 不与apiserver, scheduler发生关系。yaml文件存放到节点/etc/kubernetes/manifests目录下， kubernetes专用目录
+> 如果有DaemonSet不能实现的功能，可以使用静态文件，kubelet会定期检查目录的文件，发现变化会调用容器运行时创建或删除静态pod
+> 必须节点上纯手动部署，慎用
+
+> 使用hostPath类型创建pv时， 会因为pod节点创建或删除时不在同一台服务器上导致数据不能真正持久化， 可以使用nfs来进行持久化处理
+> 当前创建需要手动添加存储路径，可以查看下方解决方式
+> nfs 动态存储： https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner
+
+
+> LimitRange 设置默认的资源限制
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
