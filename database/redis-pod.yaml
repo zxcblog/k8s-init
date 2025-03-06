@@ -1,0 +1,112 @@
+# 端口号转发
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: redis
+  name: redis-svc
+  namespace: database
+spec:
+  ports:
+    - port: 30379
+      protocol: TCP
+      targetPort: 6379
+      nodePort: 30379
+  selector:
+    app: redis
+  type: NodePort
+
+# yaml 文件分隔符
+---
+
+# 设置密码
+apiVersion: v1
+data:
+  password: MTIzNDU2
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: redis-sec
+  namespace: database
+
+---
+
+# 数据卷设置
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis-pv
+  namespace: database
+  labels:
+    app: redis
+spec:
+  storageClassName: redis-pv
+  volumeMode: Filesystem
+  persistentVolumeReclaimPolicy: Retain
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/database/redis
+    type: DirectoryOrCreate
+
+---
+
+# 卷挂载
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: database
+  labels:
+    app: redis
+spec:
+  storageClassName: redis-pv  # 必须与 PV 的 storageClassName 匹配
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: database
+  labels:
+    app: redis
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - image: docker.io/bitnami/redis:7.4
+          name: redis
+          ports:
+            - containerPort: 6379
+              name: redis
+          volumeMounts:
+            - name: redis-persistent-storage
+              mountPath: /bitnami/redis/data
+          # 作为环境变量进行挂载
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-sec
+                  key: password
+      volumes:
+        - name: redis-persistent-storage
+          persistentVolumeClaim:
+            claimName: redis-pvc
